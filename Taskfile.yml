@@ -1,0 +1,149 @@
+version: '3'  
+
+silent: false
+
+tasks:  
+  install-tools:
+    desc: Install requirements
+    vars:
+      packages:
+        - w3m
+        - k9s
+        - kubectl
+        - helm
+        - minikube
+        - stern
+    cmds:
+      - for: { var: packages }
+        cmd: devbox global add {{.ITEM}}
+
+  install-docker:  
+    desc: "Install docker"  
+    cmds:  
+      - |  
+        if ! command -v docker &> /dev/null; then  
+          if [ "$(uname)" == "Linux" ]; then  
+            if [ -f /etc/lsb-release ]; then  
+              sudo apt-get update  
+              sudo apt-get install -y docker.io  
+            elif [ -f /etc/redhat-release ]; then  
+              sudo yum install -y docker  
+            fi  
+          elif [ "$(uname)" == "Darwin" ]; then  
+            if ! command -v brew &> /dev/null; then  
+              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"  
+            fi  
+            brew install --cask docker  
+          fi  
+        fi  
+
+        if command -v docker &> /dev/null; then  
+          docker --version  
+        else  
+          echo "Docker could not be found, please install docker"  
+        fi  
+
+        cat << EOF
+          please run the following commands:
+
+          sudo usermod -aG docker $USER  
+          newgrp docker  
+        EOF
+
+  install:  
+    desc: "Install all devkitplus tools"  
+    cmds:  
+      - task: install-tools
+      - task: install-docker  
+
+  list-k8s-versions:
+    desc: "List all K8s release versions"
+    cmds:
+      - |
+        cat << EOF
+          please run the following commands:
+
+          https://github.com/kubernetes/kubernetes/releases
+        EOF
+
+  enable-igress:
+    desc: "Enable ingress"
+    cmds:
+      - |
+        minikube addons enable ingress
+
+  k8s-start:  
+    desc: Create K8s cluster or start existing 
+    vars:  
+      profile: '{{ default "" .profile}}'
+      version: '{{ default "latest" .version }}' # Default value if not provided  
+    cmds: 
+      - |
+        # Exit if no profile is provided
+        if [ -z "{{.profile}}" ]; then
+          echo "Required profile not provided"
+          exit 1
+        fi
+
+        # check if profile exists, if exists , check if it is running, if not start it, otherwise continue
+        if minikube profile list | grep -q "{{ .profile }}"; then
+          if minikube profile list | grep -q "{{ .profile }}.*Running"; then
+            echo "Profile {{ .profile }} is already running"
+          else
+            minikube start --kubernetes-version={{ .version }} --profile="{{ .profile }}"
+          fi
+          echo "Exiting..."
+          exit 1
+        fi 
+
+        # Exit if no version is provided
+        if [ -z "{{.version}}" ]; then
+          echo "Required version not provided"
+          exit 1
+        fi
+
+        # start minikube with provided version
+        minikube start --kubernetes-version={{ .version }} --profile="{{ .profile }}"
+
+      - task: k8s-use-profile
+      - task: enable-igress
+
+  k8s-use-profile:
+    desc: Use K8s profile
+    vars:
+      profile: '{{ default "" .profile }}'
+    cmds:
+      - | 
+        [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } 
+        minikube profile {{.profile}} >> /dev/null
+      - task: k8s-ls
+
+  k8s-ls:
+    desc: List installed K8s installed
+    cmds:
+      - | 
+        minikube profile list
+
+  k8s-stop:
+    desc: Stop K8s
+    vars:
+      profile: '{{ default "" .profile}}'
+    cmds:
+      - |
+        [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } || minikube stop --profile="{{ .profile }}"  
+
+  k8s-rm:
+    desc: Start K8s
+    vars:
+      profile: '{{ default "" .profile}}'
+    cmds:
+      - |
+        [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } || minikube delete --profile="{{ .profile }}"  
+
+  k8s-help:
+    desc: "Help on further setup"
+    cmds: 
+      - |
+        cat << EOF
+          add alias kubectl='minikube kubectl' to ur rc scripts
+        EOF
