@@ -4,6 +4,7 @@ silent: false
 
 tasks:  
   install-tools:
+    internal: true
     desc: Install requirements
     vars:
       packages:
@@ -18,6 +19,7 @@ tasks:
         cmd: devbox global add {{.ITEM}}
 
   install-docker:  
+    internal: true
     desc: "Install docker"  
     cmds:  
       - |  
@@ -67,6 +69,7 @@ tasks:
         EOF
 
   enable-igress:
+    internal: true
     desc: "Enable ingress"
     cmds:
       - |
@@ -140,10 +143,4 @@ tasks:
       - |
         [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } || minikube delete --profile="{{ .profile }}"  
 
-  k8s-help:
-    desc: "Help on further setup"
-    cmds: 
-      - |
-        cat << EOF
-          add alias kubectl='minikube kubectl' to ur rc scripts
-        EOF
+
