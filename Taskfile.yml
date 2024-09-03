@@ -76,7 +76,7 @@ tasks:
         minikube addons enable ingress
 
   k8s-start:  
-    desc: Create K8s cluster or start existing 
+    desc: "Create K8s cluster or start existing. Required: profile:string, version:string. E.g k8s-start profile=dev-1-30 version=1.30.0"
     vars:  
       profile: '{{ default "" .profile}}'
       version: '{{ default "latest" .version }}' # Default value if not provided  
@@ -112,7 +112,7 @@ tasks:
       - task: enable-igress
 
   k8s-use-profile:
-    desc: Use K8s profile
+    desc: "Use K8s profile. Required: profile:string"
     vars:
       profile: '{{ default "" .profile }}'
     cmds:
@@ -128,7 +128,7 @@ tasks:
         minikube profile list
 
   k8s-stop:
-    desc: Stop K8s
+    desc: "Stop K8s. Required: profile:string"
     vars:
       profile: '{{ default "" .profile}}'
     cmds:
@@ -136,7 +136,7 @@ tasks:
         [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } || minikube stop --profile="{{ .profile }}"  
 
   k8s-rm:
-    desc: Start K8s
+    desc: "Start K8s. Required: profile:string"
     vars:
       profile: '{{ default "" .profile}}'
     cmds:
