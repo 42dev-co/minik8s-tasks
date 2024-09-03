@@ -53,7 +53,7 @@ tasks:
         EOF
 
   install:  
-    desc: "Install all devkitplus tools"  
+    desc: "Install all requirements for minik8s"  
     cmds:  
       - task: install-tools
       - task: install-docker  
