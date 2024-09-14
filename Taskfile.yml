@@ -143,4 +143,8 @@ tasks:
       - |
         [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } || minikube delete --profile="{{ .profile }}"  
 
-
+  win-patch:
+    desc: "Patch minikube for WSL use"
+    cmds: 
+      - |
+        kubectl patch svc ingress-nginx-controller -n ingress-nginx -p '{"spec": {"type": "LoadBalancer"}}'
