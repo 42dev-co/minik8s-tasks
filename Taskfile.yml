@@ -68,7 +68,7 @@ tasks:
           https://github.com/kubernetes/kubernetes/releases
         EOF
 
-  enable-igress:
+  enable-ingress:
     desc: "Enable ingress"
     cmds:
       - |
