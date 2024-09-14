@@ -68,6 +68,12 @@ tasks:
           https://github.com/kubernetes/kubernetes/releases
         EOF
 
+  enable-metric-server:
+    desc: "Enable metric server"
+    cmds:
+      - |
+        minikube  addons enable metric-server
+
   enable-ingress:
     desc: "Enable ingress"
     cmds:
