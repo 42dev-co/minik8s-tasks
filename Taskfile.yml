@@ -68,11 +68,17 @@ tasks:
           https://github.com/kubernetes/kubernetes/releases
         EOF
 
+  enable-dashboard:
+    desc: "Enable Dashboard"
+    cmds:
+      - |
+        minikube addons enable dashboard
+
   enable-metrics-server:
     desc: "Enable metrics server"
     cmds:
       - |
-        minikube  addons enable metrics-server
+        minikube addons enable metrics-server
 
   enable-ingress:
     desc: "Enable ingress"
