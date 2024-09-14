@@ -93,7 +93,7 @@ tasks:
           if minikube profile list | grep -q "{{ .profile }}.*Running"; then
             echo "Profile {{ .profile }} is already running"
           else
-            minikube start --kubernetes-version={{ .version }} --profile="{{ .profile }}"
+            minikube start --driver=docker --kubernetes-version={{ .version }} --profile="{{ .profile }}"
           fi
           echo "Exiting..."
           exit 1
