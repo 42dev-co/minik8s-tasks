@@ -69,7 +69,6 @@ tasks:
         EOF
 
   enable-igress:
-    internal: true
     desc: "Enable ingress"
     cmds:
       - |
@@ -109,7 +108,6 @@ tasks:
         minikube start --kubernetes-version={{ .version }} --profile="{{ .profile }}"
 
       - task: k8s-use-profile
-      - task: enable-igress
 
   k8s-use-profile:
     desc: "Use K8s profile. Required: profile:string"
