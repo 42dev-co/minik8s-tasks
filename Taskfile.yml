@@ -69,28 +69,44 @@ tasks:
         EOF
 
   enable-dashboard:
+    internal: true
     desc: "Enable Dashboard"
     cmds:
-      - |
-        minikube addons enable dashboard
+      - task: enable-addon 
+        vars:
+          addon: dashboard
 
   enable-metrics-server:
+    internal: true
     desc: "Enable metrics server"
     cmds:
-      - |
-        minikube addons enable metrics-server
+      - task: enable-addon 
+        vars:
+          addon: metrics-server
 
   enable-ingress:
+    internal: true
     desc: "Enable ingress"
     cmds:
+      - task: enable-addon 
+        vars:
+          addon: ingress
+
+  enable-addon:
+    desc: "Enable addon. Required: addon:string"
+    vars:
+      addon: '{{ default "" .addon }}'
+    cmds:
       - |
-        minikube addons enable ingress
+        [[ -z "{{ .addon }}" ]] && { echo "Required addon not provided"; exit 1; } || minikube addons enable {{ .addon }}
 
   k8s-start:  
     desc: "Create K8s cluster or start existing. Required: profile:string, version:string. E.g k8s-start profile=dev-1-30 version=1.30.0"
     vars:  
       profile: '{{ default "" .profile}}'
       version: '{{ default "latest" .version }}' # Default value if not provided  
+      cpu: '{{ default "2" .cpu }}'
+      memory: '{{ default "4096" .memory }}'
     cmds: 
       - |
         # Exit if no profile is provided
@@ -104,7 +120,7 @@ tasks:
           if minikube profile list | grep -q "{{ .profile }}.*Running"; then
             echo "Profile {{ .profile }} is already running"
           else
-            minikube start --driver=docker --kubernetes-version={{ .version }} --profile="{{ .profile }}"
+            minikube start --profile="{{ .profile }}" -
           fi
           echo "Exiting..."
           exit 1
@@ -117,9 +133,13 @@ tasks:
         fi
 
         # start minikube with provided version
-        minikube start --kubernetes-version={{ .version }} --profile="{{ .profile }}"
+        minikube start --profile="{{ .profile }}" --kubernetes-version={{ .version }} --cpus={{ .cpu }} --memory={{ .memory }}
 
       - task: k8s-use-profile
+      - task: enable-ingress
+      - task: enable-dashboard
+      - task: enable-metrics-server
+      - task: patch-igress-for-wsl
 
   k8s-use-profile:
     desc: "Use K8s profile. Required: profile:string"
@@ -153,8 +173,91 @@ tasks:
       - |
         [[ -z "{{ .profile }}" ]] && { echo "Required profile not provided"; exit 1; } || minikube delete --profile="{{ .profile }}"  
 
-  win-patch:
+  patch-igress-for-wsl:
+    internal: true
     desc: "Patch minikube for WSL use"
+    vars:
+      is_microsoft:
+        sh: |
+          kernal_release=$(uname -r)
+          # if kernal_release contains "microsoft" or "Microsoft" then return true, otherwise false
+          if [[ $kernal_release == *"microsoft"* ]] || [[ $kernal_release == *"Microsoft"* ]]; then
+            echo "true"
+          else
+            echo "false"
+          fi
     cmds: 
       - |
-        kubectl patch svc ingress-nginx-controller -n ingress-nginx -p '{"spec": {"type": "LoadBalancer"}}'
+        if [[ "{{ .is_microsoft }}" == "true" ]]; then
+          echo "System is Microsoft."
+          kubectl patch svc ingress-nginx-controller -n ingress-nginx -p '{"spec": {"type": "LoadBalancer"}}'
+        else
+          echo "System is not Microsoft, shall use minikube ip instead."
+        fi
+        
+  argocd-list-versions:
+    desc: List available ArgoCD versions
+    cmds:
+      - |
+        echo "Listing available ArgoCD versions"
+        curl -s https://argoproj.github.io/argo-helm/index.yaml | yq -e '.entries."argo-cd"[]' | bat
+
+  argocd-install:
+    desc: Install ArgoCD
+    inputs:
+      - name: version
+        desc: "ArgoCD version"
+    cmds:
+      - |
+        # if input is not provided, use the latest version
+        if [ -z "{{.version}}" ]; then
+         echo "Installing ArgoCD version latest"
+          helm upgrade --install argocd argo-cd \
+            --repo https://argoproj.github.io/argo-helm \
+            --namespace argocd \
+            --create-namespace \
+            --set global.domain="argocd.127-0-0-1.nip.io" \
+            --set server.service.type=NodePort \
+            --set server.extraArgs="{--insecure}" \
+            --set server.ingress.enabled=true \
+            --set server.ingress.hosts[0]="argocd.127-0-0-1.nip.io"
+        else
+          echo "Installing ArgoCD version {{.version}}"
+          helm upgrade --install argocd argo-cd \
+            --repo https://argoproj.github.io/argo-helm \
+            --namespace argocd \
+            --create-namespace \
+            --version {{.version}} \
+            --set global.domain="argocd.127-0-0-1.nip.io" \
+            --set server.service.type=NodePort \
+            --set server.extraArgs="{--insecure}" \
+            --set server.ingress.enabled=true \
+            --set server.ingress.hosts[0]="argocd.127-0-0-1.nip.io"
+        fi
+
+
+        echo "Waiting for ArgoCD to be ready"
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server --timeout=300s -n argocd
+
+        echo "ArgoCD installed successfully"
+
+  argocd-uninstall:
+    desc: Uninstall ArgoCD
+    cmds:
+      - |
+        echo "Uninstalling ArgoCD"
+        helm uninstall argocd -n argocd
+
+  argocd-default-values:
+    desc: Set default values
+    cmds:
+      - |
+        echo "Show default values"
+        helm show values argo-cd --repo https://argoproj.github.io/argo-helm
+
+  argocd-get-password:
+    desc: Get ArgoCD password
+    cmds:
+      - |
+        echo "Getting ArgoCD password"
+        kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
